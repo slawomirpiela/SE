@@ -1,0 +1,196 @@
+model Library
+
+class Book
+  attributes
+    title : String
+    author : String
+    no_copies : Integer
+    no_onshelf : Integer
+  operations
+    borrow()
+    begin
+        self.no_onshelf := self.no_onshelf - 1
+    end
+    pre copiesAmt1: no_copies > 0
+    post: no_onshelf = no_onshelf@pre - 1
+	
+	return()
+	begin
+		self.no_onshelf := self.no_onshelf + 1
+	end
+	pre copiesAmt2: no_copies > 0
+	post: no_onshelf = no_onshelf@pre + 1
+end
+
+class PaymentsDue
+	attributes
+		paid_or_not : Integer
+		days : Integer
+		amount : Integer
+	operations
+		payfine()
+		begin
+			self.amount := 0
+		end
+		pre if_p: amount > 0
+		pre ifpaid: paid_or_not > 0
+		post: amount = amount - amount
+end
+
+class Journal
+  attributes
+	title : String
+	author : String
+	statusj : Integer
+  operations
+	borrowj()
+		begin
+			self.statusj := self.statusj - 1;
+		end
+		pre avail1: statusj > 0
+		post: statusj = statusj@pre - 1
+		
+	returnj()
+		begin
+			self.statusj := self.statusj + 1;
+		end
+		pre avail2 : statusj  = 0
+		post: statusj = self.statusj@pre + 1
+end
+			
+
+class Copy
+  attributes
+    status : Integer
+	statusjor : Integer
+  operations
+    borrow( m : Member)
+    begin
+        self.status := self.status + 1;
+        self.book.borrow()
+    end
+	pre ifborrowed: self.status < 1
+
+	return( m : Member )
+	begin
+		self.status := self.status - 1;
+		self.book.return()
+	end
+	pre alreadyborrowed: self.status = 1
+	
+	borrowj( s : Staff)
+    begin
+        self.statusjor := self.statusjor - 1;
+        self.book2.borrowj()
+    end
+	pre ifborrowedj: self.statusjor > 0
+
+	returnj( s : Staff)
+	begin
+		self.statusjor := self.statusjor + 1;
+		self.book2.returnj()
+	end
+	pre alreadyborrowedj: self.statusjor = 0
+    
+end    
+    
+class Time
+	attributes
+		min : Integer
+		hour : Integer
+	operations
+	-- a query method to return the time since midnight in minutes
+	getTime() : Integer = self.hour * 60 + self.min
+	-- a non query operation
+	getTime2() : Integer
+	begin
+		result := self.hour * 60 + self.min
+	end
+end
+	
+class Member 
+  attributes 
+    name : String
+    address : String
+    no_onloan : Integer
+    status : Integer
+    fine : Integer
+  operations
+    borrow(c : Copy)
+    begin
+        insert (self, c) into HasBorrowed;
+        self.no_onloan := self.no_onloan + 1;
+        c.borrow(self)
+    end  
+	
+	return(c : Copy)
+	begin
+		delete (self, c) from HasBorrowed;
+		self.no_onloan := self.no_onloan - 1;
+		c.return(self)
+	end
+	payfine(p : PaymentsDue)
+	begin
+		self.fine := self.fine - self.fine;
+		p.payfine()
+	end
+		
+end    
+
+class Staff < Member
+  attributes 
+	maritalStatus : String
+    wages : String
+  operations
+    borrowj(c : Copy)
+    begin
+        insert (self, c) into BorrowJournal;
+        self.status := self.status - 1;
+        c.borrowj(self)
+    end  
+	
+	returnj(c : Copy)
+	begin
+		delete (self, c) from BorrowJournal;
+		self.status := self.status + 1;
+		c.returnj(self)
+	end
+end    
+
+association BorrowJournal between
+	Staff[0..1] role jborrower
+	Copy[*] role jborrowed
+end
+	
+association HasBorrowed between
+    Member[0..1] role borrower
+    Copy[*] role borrowed
+end
+
+association CopyOf between
+    Copy[1..*] role copies
+    Book[1] role book
+end
+
+association CopyOfAJournal between
+    Copy[1..*] role copies2
+    Journal[1] role book2
+end
+
+association Pay between
+	PaymentsDue[1] role payment
+	Member[1] role payer
+end
+
+constraints
+
+context Member::borrow(c:Copy) 
+    pre limit: self.no_onloan < 1
+    pre cond1: self.borrowed->excludes(c)
+    post cond2: self.borrowed->includes(c)
+ 
+context Member::return(c:Copy)
+	pre limit: self.no_onloan > 0
+	pre cond1: self.borrowed->includes(c)
+	post cond2: self.borrowed->excludes(c)
+	
