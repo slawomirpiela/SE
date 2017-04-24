@@ -22,6 +22,12 @@ class Book
 	post: no_onshelf = no_onshelf@pre + 1
 end
 
+
+--add in the copy days for loan - days he has left on thhe load
+
+--in copy precond if the (days int number) is > more than 14 days then payfine is 1
+--in return & maybe borrow later
+
 class PaymentsDue
 	attributes
 		paid_or_not : Integer
@@ -58,11 +64,13 @@ class Journal
 		post: statusj = self.statusj@pre + 1
 end
 			
-
+--in copy precond if the (days int number) is > more than 14 days then payfine is 1
+			
 class Copy
   attributes
     status : Integer
 	statusjor : Integer
+	days : Integer
   operations
     borrow( m : Member)
     begin
@@ -74,7 +82,12 @@ class Copy
 	return( m : Member )
 	begin
 		self.status := self.status - 1;
-		self.book.return()
+		self.book.return();
+		if self.time.getTime() > 14 then 
+			time.fine := 1
+		else
+			time.fine := 0
+		end;
 	end
 	pre alreadyborrowed: self.status = 1
 	
@@ -96,15 +109,15 @@ end
     
 class Time
 	attributes
-		min : Integer
+		days : Integer
 		hour : Integer
 	operations
 	-- a query method to return the time since midnight in minutes
-	getTime() : Integer = self.hour * 60 + self.min
+	getTime() : Integer = self.days + self.hour /24
 	-- a non query operation
 	getTime2() : Integer
 	begin
-		result := self.hour * 60 + self.min
+		result := self.days + self.hour / 24
 	end
 end
 	
@@ -180,6 +193,16 @@ end
 association Pay between
 	PaymentsDue[1] role payment
 	Member[1] role payer
+end
+
+association TimeOnLoan between
+	Time [1] role time
+	Copy [1] role copy
+end
+
+association TimeOnLoan2 between
+	Time [1] role time2
+	PaymentsDue[1] role payments
 end
 
 constraints

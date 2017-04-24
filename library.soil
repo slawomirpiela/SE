@@ -46,4 +46,4 @@
 !p1.amount := 5
 
 !new Time(t1)
-!
+!t1.min 
